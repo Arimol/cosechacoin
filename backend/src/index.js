@@ -3,11 +3,10 @@ import cors from "cors";
 import express from "express";
 import helmet from "helmet";
 import morgan from "morgan";
-import { healthRouter } from "./routes/health.routes.js";
 import { cropsRouter } from "./routes/crops.routes.js";
 import { boostersRouter } from "./routes/boosters.routes.js";
-import { stellarRouter } from "./routes/stellar.routes.js";
-import { aiRouter } from "./routes/ai.routes.js";
+import { stellarService } from "./services/stellar.service.js";
+import { sendError, sendSuccess } from "./utils/response.js";
 
 const app = express();
 const PORT = Number(process.env.PORT) || 4000;
@@ -23,20 +22,33 @@ app.use(
 app.use(morgan("dev"));
 app.use(express.json({ limit: "10mb" }));
 
-app.use("/api/health", healthRouter);
+/** GET /api/health — estado del API y contratos Stellar configurados */
+app.get("/api/health", (_req, res) => {
+  try {
+    return sendSuccess(res, {
+      service: "cosechacoin-backend",
+      status: "ok",
+      timestamp: new Date().toISOString(),
+      stellar: stellarService.contractIds(),
+    });
+  } catch (err) {
+    return sendError(res, err, 500);
+  }
+});
+
 app.use("/api/crops", cropsRouter);
 app.use("/api/boosters", boostersRouter);
-app.use("/api/stellar", stellarRouter);
-app.use("/api/ai", aiRouter);
 
+/** Manejo global de errores no capturados en rutas */
 app.use((err, _req, res, _next) => {
   console.error(err);
   const status = err.status || 500;
-  res.status(status).json({
-    error: err.message || "Error interno del servidor",
-  });
+  return sendError(res, err, status);
 });
 
 app.listen(PORT, () => {
   console.log(`CosechaCoin API escuchando en http://localhost:${PORT}`);
+  console.log(`Stellar: ${process.env.STELLAR_NETWORK || "testnet"}`);
+  console.log(`Crop token: ${process.env.CROP_TOKEN_CONTRACT_ID || "no configurado"}`);
+  console.log(`Booster: ${process.env.BOOSTER_CONTRACT_ID || "no configurado"}`);
 });

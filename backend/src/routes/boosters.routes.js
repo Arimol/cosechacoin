@@ -1,41 +1,84 @@
 import { Router } from "express";
 import { z } from "zod";
-import { listBoostersFromDb } from "../services/supabase.service.js";
+import { stellarService } from "../services/stellar.service.js";
+import { sendError, sendSuccess } from "../utils/response.js";
 
 export const boostersRouter = Router();
 
-const boosterSchema = z.object({
-  booster_type: z.enum(["drone_ndvi", "smart_irrigation", "certified_seeds"]),
-  description: z.string().min(3),
-  funding_goal: z.number().positive(),
-  beneficiary_public_key: z.string().min(56).max(56),
+const boosterTypeEnum = z.enum([
+  "drone_ndvi",
+  "smart_irrigation",
+  "certified_seeds",
+  "iot_sensors",
+  "organic_certification",
+]);
+
+const fundSchema = z.object({
+  investor_secret: z.string().min(56),
+  booster_type: boosterTypeEnum,
+  amount: z.union([z.string(), z.number()]),
+  provider_public_key: z.string().length(56),
 });
 
-boostersRouter.get("/", async (_req, res, next) => {
+const activateSchema = z.object({
+  booster_id: z.number().int().positive(),
+});
+
+const completeSchema = z.object({
+  booster_id: z.number().int().positive(),
+  report_hash: z.string().min(8).max(256),
+});
+
+/** POST /api/boosters/fund — financia un impulsor */
+boostersRouter.post("/fund", async (req, res) => {
   try {
-    const result = await listBoostersFromDb();
-    res.json(result);
+    const body = fundSchema.parse(req.body);
+    const data = await stellarService.fundBooster(
+      body.investor_secret,
+      body.booster_type,
+      body.amount,
+      body.provider_public_key
+    );
+    return sendSuccess(res, data, 201);
   } catch (err) {
-    next(err);
+    const status = err.name === "ZodError" ? 400 : 502;
+    return sendError(res, err, status);
   }
 });
 
-boostersRouter.post("/", async (req, res, next) => {
+/** POST /api/boosters/activate — admin activa impulsor */
+boostersRouter.post("/activate", async (req, res) => {
   try {
-    const body = boosterSchema.parse(req.body);
-    res.status(201).json({
-      message: "Impulsor registrado (persistir en Supabase / contrato Soroban)",
-      booster: {
-        ...body,
-        funded_amount: 0,
-        released: false,
-        created_at: new Date().toISOString(),
-      },
-    });
+    const body = activateSchema.parse(req.body);
+    const data = await stellarService.activateBooster(body.booster_id);
+    return sendSuccess(res, data);
   } catch (err) {
-    if (err.name === "ZodError") {
-      err.status = 400;
-    }
-    next(err);
+    const status = err.name === "ZodError" ? 400 : 502;
+    return sendError(res, err, status);
+  }
+});
+
+/** POST /api/boosters/complete — admin cierra impulsor con report_hash */
+boostersRouter.post("/complete", async (req, res) => {
+  try {
+    const body = completeSchema.parse(req.body);
+    const data = await stellarService.completeBooster(
+      body.booster_id,
+      body.report_hash
+    );
+    return sendSuccess(res, data);
+  } catch (err) {
+    const status = err.name === "ZodError" ? 400 : 502;
+    return sendError(res, err, status);
+  }
+});
+
+/** GET /api/boosters/list — todos los impulsores on-chain */
+boostersRouter.get("/list", async (_req, res) => {
+  try {
+    const data = await stellarService.listBoosters();
+    return sendSuccess(res, { boosters: data, count: data.length });
+  } catch (err) {
+    return sendError(res, err, 502);
   }
 });

@@ -1,44 +1,94 @@
 import { Router } from "express";
 import { z } from "zod";
-import { aiService } from "../services/ai.service.js";
-import { listCropsFromDb } from "../services/supabase.service.js";
+import { stellarService } from "../services/stellar.service.js";
+import { sendError, sendSuccess } from "../utils/response.js";
 
 export const cropsRouter = Router();
 
-const cropSchema = z.object({
-  crop_type: z.enum(["coffee", "beans", "cacao"]),
-  region: z.string().min(1),
-  area_hectares: z.number().positive(),
-  soil_moisture: z.number().min(0).max(1).optional(),
-  rainfall_mm: z.number().nonnegative().optional(),
-  temperature_c: z.number().optional(),
+const initializeSchema = z.object({
+  crop_name: z.string().min(1).max(128),
+  farmer_public_key: z.string().length(56),
+  total_tokens: z.number().int().positive(),
+  price_per_token: z.union([z.string(), z.number()]),
+  harvest_date: z.number().int().positive(),
 });
 
-cropsRouter.get("/", async (_req, res, next) => {
+const investSchema = z.object({
+  investor_secret: z.string().min(56),
+  amount: z.number().int().positive(),
+});
+
+const validateSchema = z.object({
+  yield_percentage: z.number().int().min(0).max(100),
+});
+
+const claimSchema = z.object({
+  investor_secret: z.string().min(56),
+});
+
+/** POST /api/crops/initialize — inicializa crop_token on-chain */
+cropsRouter.post("/initialize", async (req, res) => {
   try {
-    const result = await listCropsFromDb();
-    res.json(result);
+    const body = initializeSchema.parse(req.body);
+    const data = await stellarService.initializeCrop(
+      body.crop_name,
+      body.farmer_public_key,
+      body.total_tokens,
+      body.price_per_token,
+      body.harvest_date
+    );
+    return sendSuccess(res, data, 201);
   } catch (err) {
-    next(err);
+    const status = err.name === "ZodError" ? 400 : 502;
+    return sendError(res, err, status);
   }
 });
 
-cropsRouter.post("/predict-yield", async (req, res, next) => {
+/** POST /api/crops/invest — compra de tokens por un inversor */
+cropsRouter.post("/invest", async (req, res) => {
   try {
-    const body = cropSchema.parse(req.body);
-    const prediction = await aiService.predictYield({
-      crop_type: body.crop_type,
-      region: body.region,
-      area_hectares: body.area_hectares,
-      soil_moisture: body.soil_moisture ?? 0.45,
-      rainfall_mm: body.rainfall_mm ?? 120,
-      temperature_c: body.temperature_c ?? 24,
-    });
-    res.json(prediction);
+    const body = investSchema.parse(req.body);
+    const data = await stellarService.investInCrop(
+      body.investor_secret,
+      body.amount
+    );
+    return sendSuccess(res, data);
   } catch (err) {
-    if (err.name === "ZodError") {
-      err.status = 400;
-    }
-    next(err);
+    const status = err.name === "ZodError" ? 400 : 502;
+    return sendError(res, err, status);
+  }
+});
+
+/** POST /api/crops/validate — admin valida rendimiento de cosecha */
+cropsRouter.post("/validate", async (req, res) => {
+  try {
+    const body = validateSchema.parse(req.body);
+    const data = await stellarService.validateHarvest(body.yield_percentage);
+    return sendSuccess(res, data);
+  } catch (err) {
+    const status = err.name === "ZodError" ? 400 : 502;
+    return sendError(res, err, status);
+  }
+});
+
+/** POST /api/crops/claim — inversor reclama retorno */
+cropsRouter.post("/claim", async (req, res) => {
+  try {
+    const body = claimSchema.parse(req.body);
+    const data = await stellarService.claimReturn(body.investor_secret);
+    return sendSuccess(res, data);
+  } catch (err) {
+    const status = err.name === "ZodError" ? 400 : 502;
+    return sendError(res, err, status);
+  }
+});
+
+/** GET /api/crops/info — metadatos de la cosecha desde Soroban */
+cropsRouter.get("/info", async (_req, res) => {
+  try {
+    const data = await stellarService.getCropInfo();
+    return sendSuccess(res, data);
+  } catch (err) {
+    return sendError(res, err, 502);
   }
 });

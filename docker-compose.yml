@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: cosechacoin-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: cosechacoin
+      POSTGRES_PASSWORD: cosechacoin_dev
+      POSTGRES_DB: cosechacoin
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cosechacoin -d cosechacoin"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: cosechacoin-backend
+    restart: unless-stopped
+    ports:
+      - "4000:4000"
+    environment:
+      NODE_ENV: development
+      PORT: 4000
+      DATABASE_URL: postgresql://cosechacoin:cosechacoin_dev@postgres:5432/cosechacoin
+      STELLAR_NETWORK: testnet
+      STELLAR_HORIZON_URL: https://horizon-testnet.stellar.org
+      SOROBAN_RPC_URL: https://soroban-testnet.stellar.org
+      AI_SERVICE_URL: http://ai:8000
+      AI_API_KEY: dev-ai-key-change-in-production
+    env_file:
+      - ./backend/.env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      ai:
+        condition: service_started
+
+  ai:
+    build:
+      context: ./ai
+      dockerfile: Dockerfile
+    container_name: cosechacoin-ai
+    restart: unless-stopped
+    ports:
+      - "8000:8000"
+    environment:
+      ENVIRONMENT: development
+      LOG_LEVEL: info
+      AI_API_KEY: dev-ai-key-change-in-production
+
+volumes:
+  postgres_data:

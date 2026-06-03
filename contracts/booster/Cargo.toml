@@ -3,12 +3,17 @@ name = "booster"
 version = "0.1.0"
 edition = "2021"
 publish = false
+description = "Contrato Soroban CosechaCoin — impulsores financiados por inversores"
 
 [lib]
 crate-type = ["cdylib"]
+doctest = false
 
 [dependencies]
 soroban-sdk = { workspace = true }
 
 [dev-dependencies]
 soroban-sdk = { workspace = true, features = ["testutils"] }
+
+[package.metadata.stellar]
+cargo_inherit_metadata = true

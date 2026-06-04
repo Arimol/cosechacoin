@@ -12,6 +12,8 @@ const {
   scValToNative,
 } = Stellar;
 
+const { XdrLargeInt, xdr } = Stellar;
+
 const TESTNET_PASSPHRASE = Networks.TESTNET;
 const MAINNET_PASSPHRASE = Networks.PUBLIC;
 
@@ -34,15 +36,17 @@ function addressToScVal(publicKeyOrContract) {
 }
 
 function u32ToScVal(value) {
-  return nativeToScVal(Number(value), { type: "u32" });
+  return Stellar.xdr.ScVal.scvU32(Number(value));
 }
 
 function u64ToScVal(value) {
-  return nativeToScVal(BigInt(value), { type: "u64" });
+  const big = BigInt(value);
+  return new Stellar.XdrLargeInt("u64", big).toScVal();
 }
 
 function i128ToScVal(value) {
-  return nativeToScVal(BigInt(value), { type: "i128" });
+  const big = BigInt(value);
+  return new Stellar.XdrLargeInt("i128", big).toScVal();
 }
 
 function stringToScVal(value) {
@@ -54,7 +58,7 @@ function boosterTypeToScVal(boosterType) {
   if (!symbol) {
     throw new Error(`Tipo de impulsor no válido: ${boosterType}`);
   }
-  return nativeToScVal(symbol, { type: "symbol" });
+  return Stellar.xdr.ScVal.scvVec([Stellar.xdr.ScVal.scvSymbol(symbol)]);
 }
 
 function normalizeEnum(value) {
@@ -152,7 +156,7 @@ export class StellarService {
       networkPassphrase: this.network,
     })
       .addOperation(contract.call(method, ...scArgs))
-      .setTimeout(300)
+      .setTimeout(60)
       .build();
 
     const sim = await this.rpc.simulateTransaction(tx);
@@ -178,24 +182,34 @@ export class StellarService {
       networkPassphrase: this.network,
     })
       .addOperation(contract.call(method, ...scArgs))
-      .setTimeout(300)
+      .setTimeout(60)
       .build();
 
     tx = await this.rpc.prepareTransaction(tx);
     tx.sign(signKeypair);
 
     const sendResult = await this.rpc.sendTransaction(tx);
-    const confirmed = await this.pollTransaction(sendResult.hash);
+    const confirmed = await this.pollTransactionRaw(sendResult.hash);
 
-    if (confirmed.status !== SorobanApi.GetTransactionStatus.SUCCESS) {
+    if (confirmed.status !== "SUCCESS") {
       throw new Error(
         `Transacción fallida (${method}): ${JSON.stringify(confirmed)}`
       );
     }
 
-    const returnValue = confirmed.returnValue
-      ? scValToNative(confirmed.returnValue)
-      : null;
+    let returnValue = null;
+    try {
+      if (confirmed.returnValue) {
+        const retBuf = Buffer.from(confirmed.returnValue, "base64");
+        const scVal = Stellar.xdr.ScVal.fromXDR(retBuf);
+        const arm = scVal.switch?.()?.name ?? "";
+        if (arm !== "scvVoid") {
+          returnValue = scValToNative(scVal);
+        }
+      }
+    } catch (_) {
+      returnValue = null;
+    }
 
     return {
       hash: sendResult.hash,
@@ -205,15 +219,38 @@ export class StellarService {
     };
   }
 
-  async pollTransaction(hash, maxAttempts = 30) {
+  async pollTransaction(hash, maxAttempts = 40) {
     for (let i = 0; i < maxAttempts; i++) {
       const tx = await this.rpc.getTransaction(hash);
       if (tx.status !== SorobanApi.GetTransactionStatus.NOT_FOUND) {
         return tx;
       }
-      await sleep(1000);
+      await sleep(1500);
     }
     throw new Error("Timeout esperando confirmación de la transacción en Soroban");
+  }
+
+  /** Poll via JSON-RPC directo (evita parser defectuoso de getTransaction en SDK). */
+  async pollTransactionRaw(hash, maxAttempts = 40) {
+    for (let i = 0; i < maxAttempts; i++) {
+      const response = await fetch(this.rpcUrl, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          jsonrpc: "2.0",
+          id: 1,
+          method: "getTransaction",
+          params: { hash },
+        }),
+      });
+      const json = await response.json();
+      const status = json?.result?.status;
+      if (status && status !== "NOT_FOUND") {
+        return json.result;
+      }
+      await sleep(1500);
+    }
+    throw new Error("Timeout esperando confirmación de la transacción");
   }
 
   // --- crop_token ---
@@ -384,6 +421,119 @@ export class StellarService {
       horizonUrl: this.horizonUrl,
       rpcUrl: this.rpcUrl,
     };
+  }
+
+  /**
+   * Despliega un contrato WASM desde base64 en .env.
+   * Retorna el nuevo contractId.
+   */
+  async deployContract(contractName) {
+    console.log("deployContract inicio:", contractName);
+
+    const envKey = contractName === "crop_token"
+      ? "CROP_TOKEN_WASM_BASE64"
+      : "BOOSTER_WASM_BASE64";
+    const wasmBase64 = process.env[envKey];
+    if (!wasmBase64) throw new Error(`${envKey} no configurado en .env`);
+
+    const wasmBuffer = Buffer.from(wasmBase64, "base64");
+    console.log("WASM buffer length:", wasmBuffer.length);
+
+    const admin = this.getAdminKeypair();
+
+    // 1. Upload WASM
+    const account1 = await this.loadAccount(admin.publicKey());
+    const uploadTx = new TransactionBuilder(account1, {
+      fee: BASE_FEE,
+      networkPassphrase: this.network,
+    })
+      .addOperation(
+        Stellar.Operation.uploadContractWasm({ wasm: wasmBuffer })
+      )
+      .setTimeout(60)
+      .build();
+
+    const preparedUpload = await this.rpc.prepareTransaction(uploadTx);
+    preparedUpload.sign(admin);
+    const uploadSend = await this.rpc.sendTransaction(preparedUpload);
+    console.log("upload hash:", uploadSend.hash);
+    const uploadConfirmed = await this.pollTransactionRaw(uploadSend.hash);
+    if (uploadConfirmed.status !== "SUCCESS") {
+      throw new Error(`Upload WASM fallido: ${uploadConfirmed.status}`);
+    }
+    console.log("upload SUCCESS");
+
+    // 2. Calcular wasmHash
+    const wasmHash = Stellar.hash(wasmBuffer);
+
+    // 3. Generar salt determinístico único
+    const salt = crypto.getRandomValues(new Uint8Array(32));
+
+    // 4. Calcular contractId ANTES de enviarlo
+    const networkId = Buffer.from(
+      Stellar.hash(Buffer.from(this.network))
+    );
+    const deployerAddress = Stellar.Address.fromString(admin.publicKey());
+    const preimage = Stellar.xdr.HashIdPreimage.envelopeTypeContractId(
+      new Stellar.xdr.HashIdPreimageContractId({
+        networkId,
+        contractIdPreimage:
+          Stellar.xdr.ContractIdPreimage.contractIdPreimageFromAddress(
+            new Stellar.xdr.ContractIdPreimageFromAddress({
+              address: deployerAddress.toScAddress(),
+              salt: Buffer.from(salt),
+            })
+          ),
+      })
+    );
+    const contractId = Stellar.StrKey.encodeContract(
+      Stellar.hash(preimage.toXDR())
+    );
+    console.log("contractId calculado:", contractId);
+
+    // 5. Crear instancia del contrato
+    const account2 = await this.loadAccount(admin.publicKey());
+    const createTx = new TransactionBuilder(account2, {
+      fee: BASE_FEE,
+      networkPassphrase: this.network,
+    })
+      .addOperation(
+        Stellar.Operation.createCustomContract({
+          address: deployerAddress,
+          wasmHash,
+          salt: Buffer.from(salt),
+        })
+      )
+      .setTimeout(60)
+      .build();
+
+    const preparedCreate = await this.rpc.prepareTransaction(createTx);
+    preparedCreate.sign(admin);
+    const createSend = await this.rpc.sendTransaction(preparedCreate);
+    console.log("create hash:", createSend.hash);
+    const createConfirmed = await this.pollTransactionRaw(createSend.hash);
+    console.log("create status:", createConfirmed.status);
+    if (createConfirmed.status !== "SUCCESS") {
+      throw new Error(`Create contract fallido: ${createConfirmed.status}`);
+    }
+
+    return contractId;
+  }
+
+  /**
+   * Inicializa el contrato booster apuntando al crop dado.
+   */
+  async initializeBooster(boosterContractId, cropContractId) {
+    const admin = this.getAdminKeypair();
+    return this.invokeContract(
+      boosterContractId,
+      "initialize",
+      [
+        addressToScVal(admin.publicKey()),
+        addressToScVal(cropContractId),
+      ],
+      admin
+    );
   }
 }
 

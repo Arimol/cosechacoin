@@ -5,6 +5,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { cropsRouter } from "./routes/crops.routes.js";
 import { boostersRouter } from "./routes/boosters.routes.js";
+import { demoRouter } from "./routes/demo.routes.js";
 import { stellarService } from "./services/stellar.service.js";
 import { sendError, sendSuccess } from "./utils/response.js";
 
@@ -38,6 +39,7 @@ app.get("/api/health", (_req, res) => {
 
 app.use("/api/crops", cropsRouter);
 app.use("/api/boosters", boostersRouter);
+app.use("/api/demo", demoRouter);
 
 /** Manejo global de errores no capturados en rutas */
 app.use((err, _req, res, _next) => {
@@ -46,9 +48,7 @@ app.use((err, _req, res, _next) => {
   return sendError(res, err, status);
 });
 
-app.listen(PORT, () => {
+const server = app.listen(PORT, () => {
   console.log(`CosechaCoin API escuchando en http://localhost:${PORT}`);
-  console.log(`Stellar: ${process.env.STELLAR_NETWORK || "testnet"}`);
-  console.log(`Crop token: ${process.env.CROP_TOKEN_CONTRACT_ID || "no configurado"}`);
-  console.log(`Booster: ${process.env.BOOSTER_CONTRACT_ID || "no configurado"}`);
 });
+server.setTimeout(120000);

@@ -1,5 +1,6 @@
 import PageHeader from "@/components/PageHeader";
 import MetricCard from "@/components/MetricCard";
+import DemoResetButton from "@/components/DemoResetButton";
 import { getCrops, getDemoStatus } from "@/lib/api";
 import { MOCK_CROPS, MOCK_METRICS } from "@/lib/mockData";
 
@@ -21,6 +22,8 @@ export default async function DashboardPage() {
         title="Panel de inversión"
         description="Resumen de cosechas tokenizadas e impulsores agrícolas en Stellar Testnet."
       />
+
+      <DemoResetButton />
 
       <section className="grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <MetricCard

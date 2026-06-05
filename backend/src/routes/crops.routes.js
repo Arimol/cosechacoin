@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { z } from "zod";
 import { stellarService } from "../services/stellar.service.js";
+import { db } from "../services/supabase.service.js";
 import { sendError, sendSuccess } from "../utils/response.js";
 
 export const cropsRouter = Router();
@@ -88,6 +89,16 @@ cropsRouter.get("/info", async (_req, res) => {
   try {
     const data = await stellarService.getCropInfo();
     return sendSuccess(res, data);
+  } catch (err) {
+    return sendError(res, err, 502);
+  }
+});
+
+/** GET /api/crops/list — lista cosechas desde DB */
+cropsRouter.get("/list", async (_req, res) => {
+  try {
+    const crops = await db.listCrops();
+    return sendSuccess(res, crops);
   } catch (err) {
     return sendError(res, err, 502);
   }

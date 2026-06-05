@@ -54,18 +54,39 @@ export default function DemoResetButton() {
     <div className="mb-6 rounded-xl border border-border-subtle bg-white px-5 py-4">
       <div className="flex items-center justify-between">
         <div>
-          <p className="font-semibold text-ink-primary">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" 
-     xmlns="http://www.w3.org/2000/svg" 
-     style={{display:"inline",marginRight:"8px",verticalAlign:"middle"}}>
-  <path d="M12 2C12 2 4 6 4 13C4 17.4 7.6 21 12 21C16.4 21 20 17.4 20 13C20 6 12 2 12 2Z" 
-        stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
-  <path d="M12 21L12 10" stroke="#1A5C38" strokeWidth="1.5" strokeLinecap="round"/>
-  <path d="M12 14C12 14 9 12 8 9C10 9 12 11 12 14Z" 
-        stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
-  <path d="M12 14C12 14 15 12 16 9C14 9 12 11 12 14Z" 
-        stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
-</svg>Demo en Blockchain Real
+          <p className="flex items-center gap-2 font-semibold text-ink-primary">
+            <svg
+              width="20"
+              height="20"
+              viewBox="0 0 24 24"
+              fill="none"
+              xmlns="http://www.w3.org/2000/svg"
+              aria-hidden="true"
+            >
+              <path
+                d="M7 2C5 7 4 13 6 20L9 21.5L10 11Z"
+                fill="#1A5C38"
+              />
+              <path
+                d="M17 2C19 7 20 13 18 20L15 21.5L14 11Z"
+                fill="#1A5C38"
+              />
+              <ellipse cx="12" cy="12.5" rx="3.2" ry="7.5" fill="#C9A84C" />
+              <ellipse cx="12" cy="12.5" rx="2.2" ry="6.2" fill="#DDB94A" />
+              <path
+                d="M10 7.5h4M10 10h4M10 12.5h4M10 15h4M10 17.5h4"
+                stroke="#B8943A"
+                strokeWidth="0.6"
+                strokeLinecap="round"
+              />
+              <path
+                d="M12 20.5V22"
+                stroke="#1A5C38"
+                strokeWidth="1.5"
+                strokeLinecap="round"
+              />
+            </svg>
+            Demo en Blockchain Real
           </p>
           <p className="text-sm text-ink-secondary">
             Despliega contratos frescos en Stellar Testnet verificables públicamente.

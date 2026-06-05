@@ -1,20 +1,51 @@
 "use client";
 
-import { useState } from "react";
-import { ExternalLink } from "lucide-react";
+import { useState, useEffect } from "react";
 import PageHeader from "@/components/PageHeader";
 import CropCard from "@/components/CropCard";
 import Button from "@/components/Button";
 import InvestModal from "@/components/InvestModal";
 import { MOCK_CROPS } from "@/lib/mockData";
-import { getCropContractExplorerUrl, investInCrop } from "@/lib/api";
-import type { Crop } from "@/types";
+import { investInCrop } from "@/lib/api";
+import type { Crop, CropStatus } from "@/types";
+
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
+function mapStatus(status: string): CropStatus {
+  if (status === "active") return "Activa";
+  if (status === "validated") return "Validada";
+  if (status === "completed") return "Completada";
+  if (status === "Activa" || status === "Validada" || status === "Completada" || status === "Pendiente") {
+    return status as CropStatus;
+  }
+  return "Pendiente";
+}
+
+function formatHarvestDate(value: string | number | undefined): string {
+  if (value == null) return "—";
+  if (typeof value === "number") {
+    return new Date(value * 1000).toISOString().slice(0, 10);
+  }
+  return String(value).slice(0, 10);
+}
 
 export default function CosechasPage() {
-  const [crops] = useState<Crop[]>(MOCK_CROPS);
+  const [apiCrops, setApiCrops] = useState<any[]>([]);
   const [investCrop, setInvestCrop] = useState<Crop | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const explorerUrl = (contractId: string) => getCropContractExplorerUrl(contractId);
+
+  useEffect(() => {
+    fetch(`${API_URL}/api/crops/list`)
+      .then((r) => r.json())
+      .then((json) => {
+        if (json.data && json.data.length > 0) {
+          setApiCrops(json.data);
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const displayCrops = apiCrops.length > 0 ? apiCrops : MOCK_CROPS;
 
   async function handleInvest(amount: number, secret: string) {
     const res = await investInCrop(secret, amount);
@@ -38,29 +69,32 @@ export default function CosechasPage() {
       )}
 
       <div className="grid gap-5 lg:grid-cols-2">
-        {crops.map((crop) => (
+        {displayCrops.map((crop: any) => (
           <CropCard
-            key={crop.id}
-            cropName={crop.cropName}
+            key={crop.id || crop.contract_id}
+            cropName={crop.cropName || crop.crop_name}
             region={crop.region}
-            farmer={crop.farmer}
-            tokensAvailable={crop.tokensAvailable}
-            totalTokens={crop.totalTokens}
-            tokensSold={crop.tokensSold}
-            pricePerToken={crop.pricePerToken}
-            priceLabel={crop.priceLabel}
-            harvestDate={crop.harvestDate}
-            status={crop.status}
+            farmer={crop.farmer || `${crop.farmer_public_key?.slice(0, 8)}…`}
+            tokensAvailable={crop.tokensAvailable ?? crop.total_tokens ?? 0}
+            totalTokens={crop.totalTokens ?? crop.total_tokens ?? 0}
+            tokensSold={crop.tokensSold ?? crop.tokens_sold ?? 0}
+            pricePerToken={crop.pricePerToken ?? crop.price_per_token ?? 0}
+            priceLabel={crop.priceLabel || `$${crop.price_per_token} USDC`}
+            harvestDate={formatHarvestDate(crop.harvestDate ?? crop.harvest_date)}
+            status={mapStatus(crop.status)}
             actions={
               <>
                 <Button onClick={() => setInvestCrop(crop)}>Invertir</Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => window.open(explorerUrl((crop as Crop & { contract_id: string }).contract_id), "_blank")}
-                >
-                  <ExternalLink className="mr-2 h-4 w-4" strokeWidth={1.75} />
-                  Ver en Stellar
-                </Button>
+                {crop.contract_id && (
+                  <a
+                    href={`https://stellar.expert/explorer/testnet/contract/${crop.contract_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex items-center rounded-lg border border-border-subtle px-4 py-2 text-sm font-medium text-brand-dark hover:bg-brand-light/50"
+                  >
+                    Ver en Stellar ↗
+                  </a>
+                )}
               </>
             }
           />

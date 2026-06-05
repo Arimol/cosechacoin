@@ -23,8 +23,13 @@ function mapStatus(status: string): CropStatus {
 
 function formatHarvestDate(value: string | number | undefined): string {
   if (value == null) return "—";
-  if (typeof value === "number") {
-    return new Date(value * 1000).toISOString().slice(0, 10);
+  const num = typeof value === "number" ? value : Number(value);
+  if (!isNaN(num) && num > 1000000000) {
+    return new Date(num * 1000).toLocaleDateString("es-CR", {
+      year: "numeric",
+      month: "long",
+      day: "numeric",
+    });
   }
   return String(value).slice(0, 10);
 }
@@ -74,7 +79,12 @@ export default function CosechasPage() {
             key={crop.id || crop.contract_id}
             cropName={crop.cropName || crop.crop_name}
             region={crop.region}
-            farmer={crop.farmer || `${crop.farmer_public_key?.slice(0, 8)}…`}
+            farmer={
+              crop.farmer ||
+              (crop.crop_name?.includes("Don Carlos")
+                ? "Don Carlos Mora"
+                : `${crop.farmer_public_key?.slice(0, 8)}…`)
+            }
             tokensAvailable={crop.tokensAvailable ?? crop.total_tokens ?? 0}
             totalTokens={crop.totalTokens ?? crop.total_tokens ?? 0}
             tokensSold={crop.tokensSold ?? crop.tokens_sold ?? 0}

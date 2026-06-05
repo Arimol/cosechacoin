@@ -21,11 +21,12 @@ export default function Sidebar() {
       <div className="border-b border-border-subtle px-5 py-6">
         <Link href="/" className="flex items-center gap-3">
           <svg width="32" height="32" viewBox="0 0 32 32" fill="none" xmlns="http://www.w3.org/2000/svg" aria-label="CosechaCoin">
-            <circle cx="16" cy="16" r="15" stroke="#C9A84C" strokeWidth="2"/>
-            <path d="M16 26 C16 26 8 20 8 13 C8 9 11.5 7 16 7 C20.5 7 24 9 24 13 C24 20 16 26 16 26Z" fill="#1A5C38"/>
-            <path d="M16 7 L16 20" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round"/>
-            <path d="M12 11 C12 11 14 13 16 12 C18 11 20 13 20 13" stroke="#C9A84C" strokeWidth="1.5" strokeLinecap="round" fill="none"/>
-          </svg>
+		   <path d="M16 28 L16 8" stroke="#1A5C38" strokeWidth="2" strokeLinecap="round"/>
+		   <path d="M16 10 C16 10 11 8 10 4 C13 4 16 7 16 10Z" stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
+		   <path d="M16 10 C16 10 21 8 22 4 C19 4 16 7 16 10Z" stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
+		   <path d="M16 16 C16 16 11 14 10 10 C13 10 16 13 16 16Z" stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
+		   <path d="M16 16 C16 16 21 14 22 10 C19 10 16 13 16 16Z" stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
+		 </svg>
           <div>
             <p className="text-sm font-semibold text-brand-dark">CosechaCoin</p>
             <p className="text-xs text-ink-secondary">Inversores</p>

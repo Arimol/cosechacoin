@@ -63,9 +63,20 @@ export async function activateBooster(boosterId: number) {
   return json.data || json;
 }
 
-export async function fetchNdviReport(boosterId: number) {
-  const res = await fetch(`${API_URL}/api/boosters/${boosterId}/ndvi`, {
-    cache: "no-store",
+export async function fetchNdviReport(
+  cropType: string,
+  region: string,
+  boosterId: number
+) {
+  const AI_URL = process.env.NEXT_PUBLIC_AI_URL || "http://localhost:8000";
+  const res = await fetch(`${AI_URL}/drone/analyze`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({
+      crop_type: cropType,
+      region: region,
+      booster_id: boosterId,
+    }),
   });
   const json = await res.json();
   return json.data || json;

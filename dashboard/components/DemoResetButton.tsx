@@ -55,7 +55,17 @@ export default function DemoResetButton() {
       <div className="flex items-center justify-between">
         <div>
           <p className="font-semibold text-ink-primary">
-            🌱 Demo en Blockchain Real
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" 
+     xmlns="http://www.w3.org/2000/svg" 
+     style={{display:"inline",marginRight:"8px",verticalAlign:"middle"}}>
+  <path d="M12 2C12 2 4 6 4 13C4 17.4 7.6 21 12 21C16.4 21 20 17.4 20 13C20 6 12 2 12 2Z" 
+        stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
+  <path d="M12 21L12 10" stroke="#1A5C38" strokeWidth="1.5" strokeLinecap="round"/>
+  <path d="M12 14C12 14 9 12 8 9C10 9 12 11 12 14Z" 
+        stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
+  <path d="M12 14C12 14 15 12 16 9C14 9 12 11 12 14Z" 
+        stroke="#1A5C38" strokeWidth="1.5" strokeLinejoin="round"/>
+</svg>Demo en Blockchain Real
           </p>
           <p className="text-sm text-ink-secondary">
             Despliega contratos frescos en Stellar Testnet verificables públicamente.

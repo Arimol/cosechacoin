@@ -14,7 +14,7 @@ export default function CosechasPage() {
   const [crops] = useState<Crop[]>(MOCK_CROPS);
   const [investCrop, setInvestCrop] = useState<Crop | null>(null);
   const [toast, setToast] = useState<string | null>(null);
-  const explorerUrl = getCropContractExplorerUrl();
+  const explorerUrl = (contractId: string) => getCropContractExplorerUrl(contractId);
 
   async function handleInvest(amount: number, secret: string) {
     const res = await investInCrop(secret, amount);
@@ -56,7 +56,7 @@ export default function CosechasPage() {
                 <Button onClick={() => setInvestCrop(crop)}>Invertir</Button>
                 <Button
                   variant="secondary"
-                  onClick={() => window.open(explorerUrl, "_blank")}
+                  onClick={() => window.open(explorerUrl((crop as Crop & { contract_id: string }).contract_id), "_blank")}
                 >
                   <ExternalLink className="mr-2 h-4 w-4" strokeWidth={1.75} />
                   Ver en Stellar

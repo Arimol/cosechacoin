@@ -9,7 +9,7 @@ import { MOCK_CROPS } from "@/lib/mockData";
 import { investInCrop } from "@/lib/api";
 import type { Crop, CropStatus } from "@/types";
 
-const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+const API_URL = "https://cosechacoin-backend.onrender.com";
 
 function mapStatus(status: string): CropStatus {
   if (status === "active") return "Activa";
